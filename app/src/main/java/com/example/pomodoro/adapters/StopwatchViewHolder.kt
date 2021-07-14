@@ -9,9 +9,7 @@ import com.example.pomodoro.R
 import com.example.pomodoro.StopwatchListener
 import com.example.pomodoro.databinding.PomodoroItemBinding
 import com.example.pomodoro.entity.Stopwatch
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 
 class StopwatchViewHolder(
     private val binding: PomodoroItemBinding,
@@ -19,6 +17,7 @@ class StopwatchViewHolder(
     private val resources: Resources
 ) : RecyclerView.ViewHolder(binding.root) {
 
+    private lateinit var job: Job
     private var timer: CountDownTimer? = null
 
     fun bind(stopwatch: Stopwatch) {
@@ -36,9 +35,9 @@ class StopwatchViewHolder(
     private fun initButtonsListeners(stopwatch: Stopwatch) {
         binding.btnStartPauseItem.setOnClickListener {
             if (stopwatch.isStarted) {
-                listener.stop(stopwatch.id, stopwatch.currentMs)
+                listener.stop(stopwatch.id, stopwatch.currentMs, stopwatch.totalTime)
             } else {
-                listener.start(stopwatch.id, stopwatch.currentMs)
+                listener.start(stopwatch.id, stopwatch.currentMs, stopwatch.totalTime)
             }
         }
 
@@ -59,7 +58,7 @@ class StopwatchViewHolder(
             dialView.setPeriod(1000L * 30)
             var current = 0L
 
-            GlobalScope.launch {
+            job = CoroutineScope(Dispatchers.Main).launch {
                 while (current < PERIOD * 10) {
                     current += 100L
                     binding.dialView.setCurrent(current)
@@ -91,7 +90,12 @@ class StopwatchViewHolder(
             }
 
             override fun onFinish() {
-                binding.tvTimerItem.text = stopwatch.currentMs.displayTime()
+                binding.apply {
+                    tvTimerItem.text = stopwatch.totalTime.displayTime()
+                    dialView.setCurrent(0)
+                    job.cancel()
+                    stopTimer(stopwatch)
+                }
             }
         }
     }
